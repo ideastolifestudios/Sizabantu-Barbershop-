@@ -9,6 +9,8 @@ import { createServer } from "http";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import firebaseConfig from "./firebase-applet-config.json" assert { type: "json" };
+import calendarRoutes from "./src/lib/calendarRoutes.js";
+import { syncToGoogleCalendar } from "./src/lib/googleCalendar.js";
 
 dotenv.config();
 
@@ -55,6 +57,7 @@ const io = new Server(httpServer, {
 
 app.use(cors());
 app.use(express.json());
+app.use("/api/calendar", calendarRoutes); 
 
 // --- API ROUTES (Session Rule Engine & Automation) ---
 
@@ -255,25 +258,6 @@ if (db) {
   });
 }
 
-// --- GOOGLE WORKSPACE AUTOMATION SKELETON ---
-
-async function syncToGoogleCalendar(booking: any) {
-  console.log(`Automation: Syncing booking ${booking.id} to Google Calendar...`);
-  // In production, you would use:
-  // const calendar = google.calendar({ version: 'v3', auth });
-  // await calendar.events.insert({ ... });
-  
-  // Simulation log for the user
-  const eventDetails = {
-    summary: `Barber Session: ${booking.serviceName} (${booking.userName})`,
-    location: `Sizabantu Barbershop, Klipfontein View`,
-    description: `Code: ${booking.verificationCode}\nEmail: ${booking.userEmail}`,
-    start: { dateTime: booking.scheduledAt },
-    end: { dateTime: new Date(new Date(booking.scheduledAt).getTime() + 45 * 60000).toISOString() }
-  };
-  
-  console.log("Calendar Event Generated:", eventDetails);
-}
 
 // Connect Socket.io
 io.on("connection", (socket) => {

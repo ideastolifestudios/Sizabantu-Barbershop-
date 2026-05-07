@@ -1,10 +1,11 @@
 // src/lib/bookingApi.ts
-// Sizabantu Barbershop — CodeWords Calendar Booking API Client
-// Drop this file into your React + Vite project
+// Sizabantu Barbershop — Calendar Booking API
+// Calls YOUR Express backend (/api/calendar/*) — no CodeWords dependency.
 
-const API_BASE = "https://runtime.codewords.ai/run";
-const SERVICE_ID = "sizabantu_calendar_booking_9a021c41";
-const API_KEY = import.meta.env.VITE_CODEWORDS_API_KEY;
+// In dev: Vite proxies /api → http://localhost:3000
+// In prod: same origin — Express serves both the app and the API
+
+const API_BASE = "/api/calendar";
 
 interface TimeSlot {
   start: string;
@@ -12,81 +13,92 @@ interface TimeSlot {
   display: string;
 }
 
-interface AvailabilityResponse {
+export interface AvailabilityResponse {
   date: string;
   total_slots: number;
   slots: TimeSlot[];
 }
 
-interface BookingResponse {
-  success: boolean;
-  message: string;
-  event_id: string | null;
-  event_link: string | null;
-  start: string | null;
-  end: string | null;
+export interface CalendarBookingPayload {
+  serviceName: string;
+  userName: string;
+  userEmail?: string;
+  scheduledAt: string;   // ISO 8601 e.g. "2026-05-06T10:00:00+02:00"
+  durationMinutes?: number;
+  verificationCode: string;
+  barberName?: string;
+  type?: "scheduled" | "queue";
+  firestoreBookingId?: string; // if set, eventId is written back to Firestore
 }
 
-interface CancelResponse {
+export interface CreateBookingResponse {
+  success: boolean;
+  eventId: string;
+  htmlLink: string;
+  start: string;
+  end: string;
+}
+
+export interface CancelBookingResponse {
   success: boolean;
   message: string;
 }
 
-async function callApi<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const url = `${API_BASE}/${SERVICE_ID}${path ? `/${path}` : ""}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+async function apiCall<T>(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Booking API error ${res.status}: ${errorText}`);
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error ?? `API error ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
 
+// ── Public API ─────────────────────────────────────────────────────────────
+
 /**
  * Check available time slots for a given date.
- * @param date - Date in YYYY-MM-DD format (e.g. "2026-05-06")
- * @param durationMin - Appointment duration in minutes (default 30)
- * @returns Available time slots between 08:00-18:00 SAST
+ * @param date       - "YYYY-MM-DD"
+ * @param durationMin - appointment length in minutes (default 30)
  */
-export async function getAvailability(
+export function getAvailability(
   date: string,
   durationMin = 30
 ): Promise<AvailabilityResponse> {
-  return callApi<AvailabilityResponse>("availability", {
-    date,
-    duration_minutes: durationMin,
+  return apiCall<AvailabilityResponse>(
+    "GET",
+    `/availability?date=${date}&duration=${durationMin}`
+  );
+}
+
+/**
+ * Create a Google Calendar event for a confirmed booking.
+ * Pass firestoreBookingId to auto-write eventId back to Firestore.
+ */
+export function createBooking(
+  payload: CalendarBookingPayload
+): Promise<CreateBookingResponse> {
+  return apiCall<CreateBookingResponse>("POST", "/booking", payload);
+}
+
+/**
+ * Cancel a booking — deletes the Google Calendar event.
+ * Pass firestoreBookingId to also mark the Firestore doc as cancelled.
+ */
+export function cancelBooking(
+  eventId: string,
+  firestoreBookingId?: string
+): Promise<CancelBookingResponse> {
+  return apiCall<CancelBookingResponse>("DELETE", `/booking/${eventId}`, {
+    firestoreBookingId,
   });
-}
-
-/**
- * Create a barbershop booking synced to Google Calendar.
- * Store the returned event_id in your Firestore booking document
- * so the admin dashboard can cancel it later.
- */
-export async function createBooking(booking: {
-  service_name: string;
-  client_name: string;
-  client_phone: string;
-  start_time: string; // ISO 8601 with tz e.g. "2026-05-06T10:00:00+02:00"
-  duration_minutes: number;
-  verification_code: string;
-  barber_name?: string;
-  booking_type?: "scheduled" | "queue";
-}): Promise<BookingResponse> {
-  return callApi<BookingResponse>("", booking);
-}
-
-/**
- * Cancel a booking by removing the Google Calendar event.
- * @param eventId - The event_id returned from createBooking
- */
-export async function cancelBooking(eventId: string): Promise<CancelResponse> {
-  return callApi<CancelResponse>("cancel", { event_id: eventId });
 }
