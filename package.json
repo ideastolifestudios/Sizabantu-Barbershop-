@@ -13,21 +13,24 @@
     "date-fns": "^4.1.0",
     "firebase": "^11.7.0",
     "firebase-admin": "^13.2.0",
+    "lucide-react": "^1.14.0",
+    "motion": "^12.38.0",
     "nanoid": "^5.1.5",
     "next": "15.3.8",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^4.5.1",
+    "socket.io-client": "^4.8.3",
     "tailwindcss": "^4"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/qrcode": "^1.5.5",
-    "typescript": "^5",
     "eslint": "^9",
-    "eslint-config-next": "15.3.8"
+    "eslint-config-next": "15.3.8",
+    "typescript": "^5"
   }
 }
