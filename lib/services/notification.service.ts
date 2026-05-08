@@ -131,8 +131,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
       body: JSON.stringify({
         from: process.env.NOTIFICATION_FROM_EMAIL || `noreply@sizabantubarbershop.co.za`,
         to, subject,
-        html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;">${html.replace(/
-/g, "<br>").replace(/\*(.*?)\*/g, "<strong>$1</strong>")}</div>`,
+        html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;">${html.replace(/\n/g, "<br>").replace(/\*(.*?)\*/g, "<strong>$1</strong>")}</div>`,
       }),
     });
     return res.ok;
