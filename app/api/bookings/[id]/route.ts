@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { ok, err, handleApiError } from "@/lib/utils/api-helpers";
-import { verifyAuth } from "@/lib/utils/auth";
-import { cancelBooking, checkInBooking, getBookingById } from "@/lib/services/booking.service";
+import { ok, err, handleApiError } from "../../../../lib/utils/api-helpers";
+import { verifyAuth } from "../../../../lib/utils/auth";
+import { cancelBooking, checkInBooking, getBookingById } from "../../../../lib/services/booking.service";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

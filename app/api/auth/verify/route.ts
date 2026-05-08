@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { ok, handleApiError } from "@/lib/utils/api-helpers";
-import { verifyAuth } from "@/lib/utils/auth";
-import { adminDb, COLLECTIONS } from "@/lib/firebase/admin";
+import { ok, handleApiError } from "../../../../lib/utils/api-helpers";
+import { verifyAuth } from "../../../../lib/utils/auth";
+import { adminDb, COLLECTIONS } from "../../../../lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
 
 // Create or fetch user profile after sign-in
