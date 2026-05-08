@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
 
   if (format === "png") {
     const buffer = await QRCode.toBuffer(checkInUrl, { type: "png", width: 300, margin: 2 });
-    return new NextResponse(buffer, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
+    return new NextResponse(new Uint8Array(buffer), { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
   }
 
   const svg = await QRCode.toString(checkInUrl, { type: "svg", margin: 2 });
