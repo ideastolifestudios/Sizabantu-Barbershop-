@@ -1,1 +1,12 @@
-{"framework": "nextjs"}
+{
+  "crons": [
+    {
+      "path": "/api/scheduler/reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/scheduler/expire",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

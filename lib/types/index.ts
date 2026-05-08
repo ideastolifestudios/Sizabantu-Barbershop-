@@ -137,12 +137,3 @@ export interface Barber {
 export interface ApiSuccess<T = unknown> { success: true; data: T; }
 export interface ApiError { success: false; error: string; code?: string; }
 export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError;
-
-// ─── Reward Ledger (missing from initial sync) ───────────────────────────────
-export interface RewardLedger {
-  uid: string;
-  stamps: number;
-  totalStamps: number;
-  rewards: Reward[];
-  pendingRewards: Reward[];
-}
