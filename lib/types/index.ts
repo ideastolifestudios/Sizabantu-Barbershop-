@@ -93,6 +93,16 @@ export interface Reward {
   sessionId?: string;
 }
 
+
+// ─── Reward Ledger (aggregate view for a user) ───────────────────
+export interface RewardLedger {
+  uid: string;
+  stamps: number;          // current stamp card count (resets after milestone)
+  totalStamps: number;     // all-time stamps earned
+  rewards: Reward[];       // full reward history
+  pendingRewards: Reward[]; // unredeemed rewards
+}
+
 // ─── Notification ────────────────────────────────────────────────
 export type NotificationEvent =
   | "booking_confirmed" | "booking_cancelled" | "queue_joined"
