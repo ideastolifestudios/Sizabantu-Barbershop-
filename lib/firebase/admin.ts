@@ -9,9 +9,24 @@ function getAdminApp() {
   return initializeApp({ credential: cert(JSON.parse(raw)) });
 }
 
-const adminApp = getAdminApp();
-export const adminDb = getFirestore(adminApp);
-export const adminAuth = getAuth(adminApp);
+// Lazy singletons — deferred until first use so build-time import is safe
+let _db: ReturnType<typeof getFirestore> | null = null;
+let _auth: ReturnType<typeof getAuth> | null = null;
+
+// Proxy-based exports: existing callers (adminDb.collection(...)) work unchanged
+export const adminDb = new Proxy({} as ReturnType<typeof getFirestore>, {
+  get(_t, prop, receiver) {
+    if (!_db) _db = getFirestore(getAdminApp());
+    return Reflect.get(_db, prop, receiver);
+  },
+});
+
+export const adminAuth = new Proxy({} as ReturnType<typeof getAuth>, {
+  get(_t, prop, receiver) {
+    if (!_auth) _auth = getAuth(getAdminApp());
+    return Reflect.get(_auth, prop, receiver);
+  },
+});
 
 export const COLLECTIONS = {
   USERS: "users",
