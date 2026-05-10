@@ -1,7 +1,5 @@
 'use client';
 
-'use client';
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -78,7 +76,7 @@ function InstagramIcon({ className = "" }: { className?: string }) {
   );
 }
 
-// Prevent Next.js from SSR-rendering this heavy client page (Firebase + socket.io)
+// Prevent SSR on this heavy client page
 export const dynamic = 'force-dynamic';
 
 // Initialize Firebase
@@ -578,405 +576,501 @@ const AdminDashboard = () => {
 };
 
 const BookingSystem = ({ profile }: { profile: any }) => {
-  const { loginGoogle } = useAuth();
-
-  // Step flow: 0=idle 1=service 2=party 3=type 4=datetime(sched only) 5=details 6=confirmed
-  const [step, setStep] = useState(0);
-  const [selectedService, setSelectedService] = useState('');
-  const [partySize, setPartySize] = useState(1);
-  const [bookingType, setBookingType] = useState<'queue' | 'scheduled' | ''>('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [confirmed, setConfirmed] = useState<any>(null);
+  const { 
+    authStep, setAuthStep, email, setEmail, 
+    otp, setOtp, isSendingCode, requestOTP, 
+    verifyOTP, loginGoogle, handleFirestoreError,
+    emailError, otpError
+  } = useAuth();
   const [activeBooking, setActiveBooking] = useState<any>(null);
-  const [showAuth, setShowAuth] = useState(false);
-  const [authMethod, setAuthMethod] = useState<'idle'|'google'>('idle');
+  const [queue, setQueue] = useState<any[]>([]);
+  const [bookingFlow, setBookingFlow] = useState<'none' | 'queue' | 'scheduled'>('none');
+  const [selectedService, setSelectedService] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+  
+  // Generate next 7 days for the calendar
+  const nextDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return {
+      full: d.toISOString().split('T')[0],
+      day: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      date: d.getDate(),
+      isToday: i === 0
+    };
+  });
 
   useEffect(() => {
     if (!profile) return;
+
     const q = query(
       collection(db, 'bookings'),
       where('userId', '==', profile.uid),
       where('status', 'in', ['pending', 'confirmed', 'checked-in', 'in-progress']),
       limit(1)
     );
-    return onSnapshot(q, (snap) => {
-      setActiveBooking(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() });
-    });
-  }, [profile]);
 
-  useEffect(() => {
-    if (profile?.displayName && !clientName) setClientName(profile.displayName);
-  }, [profile]);
-
-  const service = SERVICES.find(s => s.id === selectedService);
-  const totalPrice = (service?.price || 0) * partySize;
-
-  const dates = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    if (d.getDay() === 1) return null; // Monday closed
-    return {
-      full: d.toISOString().split('T')[0],
-      label: d.toLocaleDateString('en-ZA', { weekday: 'short', month: 'short', day: 'numeric' }),
-      isToday: i === 0
-    };
-  }).filter(Boolean) as { full: string; label: string; isToday: boolean }[];
-
-  const timeSlots = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'];
-
-  const startBooking = () => {
-    if (!profile) { setShowAuth(true); return; }
-    setStep(1);
-  };
-
-  const submitBooking = async () => {
-    if (!profile || !selectedService || !clientName || !clientPhone) return;
-    setLoading(true);
-    try {
-      let scheduledAt: any = serverTimestamp();
-      if (bookingType === 'scheduled' && selectedDate && selectedTime) {
-        const d = new Date(selectedDate);
-        const [h, m] = selectedTime.split(':');
-        d.setHours(+h, +m, 0, 0);
-        scheduledAt = Timestamp.fromDate(d);
+    const unsubscribeBookings = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        setActiveBooking({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+        setBookingFlow('none');
+      } else {
+        setActiveBooking(null);
       }
-      const bookingData = {
-        userId: profile.uid,
-        userName: clientName,
-        userPhone: clientPhone,
-        userEmail: profile.email || '',
-        type: bookingType,
-        partySize,
-        serviceId: selectedService,
-        serviceName: service?.name || 'Custom Cut',
-        totalPaid: totalPrice,
-        status: 'confirmed',
-        location: 'shop',
-        scheduledAt,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-      const docRef = await addDoc(collection(db, 'bookings'), bookingData);
-      setConfirmed({ id: docRef.id, ...bookingData, scheduledDate: selectedDate, scheduledTime: selectedTime });
-      setStep(6);
-    } catch (err) { console.error('Booking error:', err); }
-    finally { setLoading(false); }
+    }, (error) => handleFirestoreError(error, 'get' as any, 'bookings'));
+
+    const queueQuery = query(
+      collection(db, 'bookings'),
+      where('type', '==', 'queue'),
+      where('status', 'in', ['pending', 'confirmed', 'checked-in']),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribeQueue = onSnapshot(queueQuery, (snapshot) => {
+      setQueue(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => handleFirestoreError(error, 'list' as any, 'bookings'));
+
+    return () => {
+      unsubscribeBookings();
+      unsubscribeQueue();
+    };
+  }, [profile]);
+
+  const createBooking = async (type: 'queue' | 'scheduled') => {
+    if (!profile) {
+      setShowLoginModal(true);
+      return;
+    }
+    if (!selectedService) return;
+
+    let scheduledDate = serverTimestamp();
+
+    if (type === 'scheduled' && selectedTime) {
+      const bookingDate = new Date(selectedDate);
+      const [hours, minutes] = selectedTime.split(':');
+      bookingDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      scheduledDate = Timestamp.fromDate(bookingDate);
+    }
+
+    const service = SERVICES.find(s => s.id === selectedService);
+    const bookingData = {
+      userId: profile.uid,
+      userName: profile.displayName,
+      userEmail: profile.email,
+      type,
+      location: 'shop',
+      clientAddress: 'Klipfontein View Shop',
+      travelFee: 0,
+      totalPaid: (service?.price || 0),
+      status: 'confirmed', 
+      serviceId: selectedService,
+      serviceName: service?.name || 'Custom Cut',
+      scheduledAt: scheduledDate,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      await addDoc(collection(db, 'bookings'), bookingData);
+      
+      // Emit to server to trigger Google Calendar sync
+      socket.emit('booking:new', { 
+        ...bookingData, 
+        scheduledAt: scheduledDate instanceof Timestamp ? scheduledDate.toDate().toISOString() : new Date().toISOString() 
+      });
+
+      setBookingFlow('none');
+      setSelectedService('');
+      setSelectedTime('');
+    } catch (err) {
+      console.error("Booking Error:", err);
+    }
   };
-
-  const reset = () => {
-    setStep(0); setSelectedService(''); setPartySize(1); setBookingType('');
-    setSelectedDate(''); setSelectedTime(''); setConfirmed(null);
-    if (profile?.displayName) setClientName(profile.displayName);
-    else setClientName('');
-    setClientPhone('');
-  };
-
-  // Shared input styles
-  const selectCls = "w-full border border-slate-200 bg-white text-slate-900 px-4 py-3 rounded text-sm focus:outline-none focus:border-slate-900 transition-colors";
-  const labelCls = "block text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5";
-  const btnPrimary = "w-full bg-slate-900 text-white py-3 text-xs font-semibold uppercase tracking-widest transition-colors hover:bg-slate-700 disabled:opacity-40";
-  const btnSecondary = "w-full border border-slate-200 text-slate-700 py-3 text-xs font-semibold uppercase tracking-widest transition-colors hover:border-slate-900 hover:text-slate-900";
-
-  // Progress bar steps
-  const totalSteps = bookingType === 'scheduled' ? 5 : 4;
-  const currentProgress = step > 0 ? Math.min(step, totalSteps) : 0;
 
   return (
-    <section id="book" className="py-20 bg-slate-900 scroll-mt-20">
-      <div className="max-w-2xl mx-auto px-6">
-
-        {/* Auth Gate Modal */}
-        <AnimatePresence>
-          {showAuth && !profile && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[2000] bg-slate-900/95 flex items-center justify-center p-6">
-              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                className="w-full max-w-sm bg-white p-8">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-sm font-semibold uppercase tracking-widest">Sign In to Book</h3>
-                  <button onClick={() => setShowAuth(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                  Sign in to book your session, track appointments, and earn loyalty stamps.
-                </p>
-                <button
-                  onClick={async () => {
-                    setAuthMethod('google');
-                    await loginGoogle();
-                    setAuthMethod('idle');
-                    if (auth.currentUser) { setShowAuth(false); setStep(1); }
-                  }}
-                  disabled={authMethod === 'google'}
-                  className="w-full flex items-center justify-center gap-3 border border-slate-200 py-3 text-xs font-semibold uppercase tracking-widest text-slate-700 hover:border-slate-900 transition-colors disabled:opacity-50"
-                >
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="" />
-                  {authMethod === 'google' ? 'Signing in...' : 'Continue with Google'}
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Header */}
-        <div className="mb-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-500 mb-2">Sizabantu Barbershop</p>
-          <h2 className="text-3xl font-bold text-white tracking-tight">Book a Session</h2>
-        </div>
-
-        {/* Active Booking Banner */}
-        {activeBooking && step === 0 && (
-          <div className="border border-slate-700 p-5 mb-8">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Active Booking</p>
-            <p className="text-sm font-semibold text-white">{activeBooking.serviceName}</p>
-            <p className="text-xs text-slate-400 mt-1 capitalize">{activeBooking.status}</p>
-          </div>
-        )}
-
-        {/* Step 0: Entry */}
-        {step === 0 && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Open Tue – Sun · 09:00 – 18:00 · Klipfontein View, Midrand
-            </p>
-            <button onClick={startBooking} className={btnPrimary}>
-              {profile ? 'Start Booking' : 'Sign In & Book'}
-            </button>
-            {profile && (
-              <p className="text-center text-[10px] text-slate-500 uppercase tracking-widest">
-                Signed in as {profile.displayName?.split(' ')[0]}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Steps 1-5: Booking Flow */}
-        {step >= 1 && step <= 5 && (
-          <div>
-            {/* Progress */}
-            <div className="flex items-center gap-1 mb-8">
-              {Array.from({ length: totalSteps }, (_, i) => (
-                <div key={i} className={`h-0.5 flex-1 transition-colors ${i < currentProgress ? 'bg-white' : 'bg-slate-700'}`} />
-              ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-              {/* Step 1: Service */}
-              {step === 1 && (
-                <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Step 1 of {totalSteps}</p>
-                    <h3 className="text-lg font-semibold text-white mb-5">Select a service</h3>
-                    <label className={labelCls + " text-slate-400"}>Service</label>
-                    <select value={selectedService} onChange={e => setSelectedService(e.target.value)} className={selectCls}>
-                      <option value="">Choose service...</option>
-                      {SERVICES.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} — R{s.price}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button onClick={() => selectedService && setStep(2)} disabled={!selectedService} className={btnPrimary}>
-                    Next
-                  </button>
-                </motion.div>
-              )}
-
-              {/* Step 2: Party Size */}
-              {step === 2 && (
-                <motion.div key="s2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Step 2 of {totalSteps}</p>
-                    <h3 className="text-lg font-semibold text-white mb-5">How many people?</h3>
-                    <label className={labelCls + " text-slate-400"}>Number of people</label>
-                    <select value={partySize} onChange={e => setPartySize(+e.target.value)} className={selectCls}>
-                      <option value={1}>1 person</option>
-                      <option value={2}>2 people</option>
-                      <option value={3}>3 people</option>
-                      <option value={4}>4 people</option>
-                    </select>
-                    {partySize > 1 && (
-                      <p className="text-xs text-slate-400 mt-2">
-                        Each person gets their own appointment slot. Total: R{totalPrice}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setStep(1)} className={btnSecondary + " text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"}>Back</button>
-                    <button onClick={() => setStep(3)} className={btnPrimary}>Next</button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Step 3: Queue or Scheduled */}
-              {step === 3 && (
-                <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Step 3 of {totalSteps}</p>
-                    <h3 className="text-lg font-semibold text-white mb-5">When would you like to come in?</h3>
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => { setBookingType('queue'); setStep(bookingType === 'scheduled' ? 4 : 4); }}
-                        className={`w-full p-4 border text-left transition-colors ${bookingType === 'queue' ? 'border-white bg-white/5' : 'border-slate-700 hover:border-slate-500'}`}
-                        onClickCapture={() => setBookingType('queue')}
-                        onClick={() => { setBookingType('queue'); setStep(4); }}
-                      >
-                        <p className="text-sm font-semibold text-white">Walk-in Queue</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Join today's queue. We'll hold your spot.</p>
-                      </button>
-                      <button
-                        className={`w-full p-4 border text-left transition-colors ${bookingType === 'scheduled' ? 'border-white bg-white/5' : 'border-slate-700 hover:border-slate-500'}`}
-                        onClick={() => { setBookingType('scheduled'); setStep(4); }}
-                      >
-                        <p className="text-sm font-semibold text-white">Schedule Ahead</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Pick a specific date and time slot.</p>
-                      </button>
-                    </div>
-                  </div>
-                  <button onClick={() => setStep(2)} className={btnSecondary + " text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"}>Back</button>
-                </motion.div>
-              )}
-
-              {/* Step 4: Date & Time (scheduled) OR Details (queue) */}
-              {step === 4 && bookingType === 'scheduled' && (
-                <motion.div key="s4sched" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Step 4 of {totalSteps}</p>
-                    <h3 className="text-lg font-semibold text-white mb-5">Choose date & time</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className={labelCls + " text-slate-400"}>Date</label>
-                        <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className={selectCls}>
-                          <option value="">Select date...</option>
-                          {dates.map(d => d && (
-                            <option key={d.full} value={d.full}>
-                              {d.isToday ? 'Today' : ''} {d.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls + " text-slate-400"}>Time</label>
-                        <select value={selectedTime} onChange={e => setSelectedTime(e.target.value)} className={selectCls}>
-                          <option value="">Select time...</option>
-                          {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setStep(3)} className={btnSecondary + " text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"}>Back</button>
-                    <button onClick={() => selectedDate && selectedTime && setStep(5)} disabled={!selectedDate || !selectedTime} className={btnPrimary}>Next</button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Step 4 for queue / Step 5 for scheduled: Client Details */}
-              {((step === 4 && bookingType === 'queue') || (step === 5 && bookingType === 'scheduled')) && (
-                <motion.div key="details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                  <div>
-                    <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">
-                      Step {bookingType === 'scheduled' ? '5' : '4'} of {totalSteps}
-                    </p>
-                    <h3 className="text-lg font-semibold text-white mb-5">Your details</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className={labelCls + " text-slate-400"}>Full Name</label>
-                        <input
-                          type="text"
-                          value={clientName}
-                          onChange={e => setClientName(e.target.value)}
-                          placeholder="Your name"
-                          className={selectCls}
-                        />
-                      </div>
-                      <div>
-                        <label className={labelCls + " text-slate-400"}>Phone Number</label>
-                        <input
-                          type="tel"
-                          value={clientPhone}
-                          onChange={e => setClientPhone(e.target.value)}
-                          placeholder="+27 60 000 0000"
-                          className={selectCls}
-                        />
-                      </div>
-                      {partySize > 1 && (
-                        <p className="text-xs text-slate-500 border border-slate-700 p-3">
-                          Booking for {partySize} people · R{totalPrice} total · We'll accommodate everyone in consecutive slots.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setStep(bookingType === 'scheduled' ? 4 : 3)} className={btnSecondary + " text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"}>Back</button>
-                    <button onClick={submitBooking} disabled={!clientName || !clientPhone || loading} className={btnPrimary}>
-                      {loading ? 'Confirming...' : 'Confirm Booking'}
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* Step 6: Confirmation */}
-        {step === 6 && confirmed && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            <div className="border border-slate-700 p-6">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-4">Booking Confirmed</p>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Service</span>
-                  <span className="text-white font-medium">{confirmed.serviceName}</span>
-                </div>
-                {confirmed.partySize > 1 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Party</span>
-                    <span className="text-white font-medium">{confirmed.partySize} people</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Type</span>
-                  <span className="text-white font-medium capitalize">{confirmed.type === 'queue' ? 'Walk-in Queue' : 'Scheduled'}</span>
-                </div>
-                {confirmed.type === 'scheduled' && confirmed.scheduledDate && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Date & Time</span>
-                    <span className="text-white font-medium">{confirmed.scheduledDate} at {confirmed.scheduledTime}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Total</span>
-                  <span className="text-white font-medium">R{confirmed.totalPaid}</span>
-                </div>
-                <div className="border-t border-slate-700 pt-3 flex justify-between text-sm">
-                  <span className="text-slate-400">Name</span>
-                  <span className="text-white font-medium">{confirmed.userName}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Phone</span>
-                  <span className="text-white font-medium">{confirmed.userPhone}</span>
+    <section id="book" className="py-24 bg-slate-900 text-white overflow-hidden relative scroll-mt-20">
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
+      
+      {/* Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[2000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="max-w-md w-full bg-white rounded-[3rem] p-12 text-slate-900 text-center shadow-3xl relative overflow-hidden"
+            >
+              <button 
+                onClick={() => setShowLoginModal(false)}
+                className="absolute top-8 right-8 p-3 bg-slate-50 text-slate-400 hover:text-brand-red rounded-2xl transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              
+              <div className="flex justify-center mb-8">
+                <div className="w-16 h-16 bg-brand-red/10 flex items-center justify-center rounded-2xl">
+                  <User className="w-8 h-8 text-brand-red" />
                 </div>
               </div>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              We look forward to seeing you. Please arrive 5 minutes before your scheduled time.
-              Klipfontein View, Nancy Ndamase Street, Midrand.
-            </p>
-            <button onClick={reset} className={btnSecondary + " text-slate-400 border-slate-700 hover:border-slate-500 hover:text-white"}>
-              Done
-            </button>
+              <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Member Entry</h3>
+              <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8">Please sign in to secure your session and earn loyalty stamps.</p>
+              
+              <div className="space-y-4">
+                <AnimatePresence mode="wait">
+                  {authStep === 'methods' && (
+                    <motion.div key="methods" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+                      <button 
+                        onClick={() => setAuthStep('email')}
+                        className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-brand-red transition-all flex items-center justify-center gap-3"
+                      >
+                        <Mail className="w-4 h-4" />
+                        Continue with Email
+                      </button>
+                      <button 
+                        onClick={async () => { await loginGoogle(); if (auth.currentUser) setShowLoginModal(false); }}
+                        className="w-full bg-slate-50 border border-slate-100 text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all flex items-center justify-center gap-3"
+                      >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+                        Google Login
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {authStep === 'email' && (
+                    <motion.form key="email" onSubmit={requestOTP} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                      <input 
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@domain.com"
+                        className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-2xl text-slate-900 font-bold outline-none focus:border-brand-blue"
+                      />
+                      <button type="submit" disabled={isSendingCode} className="w-full bg-brand-red text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]">
+                        {isSendingCode ? 'Sending...' : 'Send Access Code'}
+                      </button>
+                      <button type="button" onClick={() => setAuthStep('methods')} className="text-[9px] font-black uppercase text-slate-400 underline">Back</button>
+                    </motion.form>
+                  )}
+
+                  {authStep === 'otp' && (
+                    <motion.form key="otp" onSubmit={async (e) => { await verifyOTP(e); if (auth.currentUser) setShowLoginModal(false); }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                      <input 
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        placeholder="000 000"
+                        className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-2xl text-slate-900 font-black text-2xl text-center tracking-widest outline-none"
+                      />
+                      <button type="submit" className="w-full bg-brand-blue text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]">Verify & Continue</button>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+      
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+          {/* Main Action Buttons (Front UX) */}
+          {bookingFlow === 'none' && !activeBooking && (
+            <div className="space-y-12 mb-16">
+              <div className="grid md:grid-cols-2 gap-8">
+                <motion.button 
+                  onClick={() => setBookingFlow('queue')} 
+                  whileHover={{ y: -5, scale: 1.01 }}
+                  className="bg-brand-red text-white p-12 rounded-[3.5rem] shadow-2xl shadow-red-500/20 text-left relative overflow-hidden group border border-brand-red/50"
+                >
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Join Live Queue</span>
+                    </div>
+                    <h3 className="text-4xl md:text-5xl font-black uppercase mb-4 leading-none">Walk-In <br/>Now</h3>
+                    <p className="text-white/70 text-xs font-bold font-serif italic mb-8 max-w-[240px]">Perfect for immediate service. Our automated system manages the line.</p>
+                    
+                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                      <p className="text-[9px] font-black uppercase tracking-widest mb-2 opacity-60">Operating Hours</p>
+                      <div className="flex justify-between items-center text-[10px] font-bold">
+                        <span>Tue - Sun</span>
+                        <span className="text-white/40">|</span>
+                        <span>09:00 - 18:00</span>
+                      </div>
+                      <p className="text-[8px] mt-2 opacity-40 uppercase tracking-widest italic font-serif">Including Public Holidays</p>
+                    </div>
+                  </div>
+                  <Users className="absolute -bottom-12 -right-12 w-64 h-64 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                </motion.button>
+
+                <motion.button 
+                  onClick={() => setBookingFlow('scheduled')} 
+                  whileHover={{ y: -5, scale: 1.01 }}
+                  className="bg-white/5 border border-white/10 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl shadow-black/40"
+                >
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-brand-blue/20 p-2 rounded-xl backdrop-blur-md border border-brand-blue/30">
+                        <Calendar className="w-5 h-5 text-brand-blue" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/50">Priority Booking</span>
+                    </div>
+                    <h3 className="text-4xl md:text-5xl font-black uppercase mb-4 leading-none">Avoid <br/>The Line</h3>
+                    <p className="text-white/40 text-xs font-bold font-serif italic mb-8 max-w-[240px]">Secure your specific time slot in advance for zero wait time.</p>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <div className="bg-white/5 px-4 py-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-widest text-brand-blue">No Waiting</div>
+                      <div className="bg-white/5 px-4 py-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-widest text-white/40">Guaranteed Slot</div>
+                    </div>
+                  </div>
+                  <Clock className="absolute -bottom-12 -right-12 w-64 h-64 opacity-5 group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                </motion.button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid lg:grid-cols-2 gap-16 items-start">
+            <div className="className">
+              {activeBooking ? (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/10 backdrop-blur-xl border border-white/10 p-10 rounded-[3rem] relative overflow-hidden group shadow-2xl shadow-black/50">
+                <div className="p-8 bg-white/5 rounded-[2rem] mb-8 border border-white/10">
+                  <div className="flex items-center gap-4 text-white/80 mb-6 bg-brand-red/10 p-4 rounded-xl border border-brand-red/20">
+                    <AlertCircle className="w-5 h-5 text-brand-red" />
+                    <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Arrive 10 minutes before session. Late arrivals auto-expire.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Queue Pos</p>
+                      <p className="text-4xl font-black">{activeBooking.type === 'queue' ? (queue.findIndex(b => b.id === activeBooking.id) + 1 || '...') : 'STA'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Est. Wait</p>
+                      <p className="text-4xl font-black">~{(activeBooking.type === 'queue' ? (queue.findIndex(b => b.id === activeBooking.id) * 15) : 0) || 5}m</p>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => updateDoc(doc(db, 'bookings', activeBooking.id), { status: 'missed' })} className="text-[9px] font-black uppercase tracking-widest text-white/30 hover:text-brand-red transition-all underline underline-offset-8">Cancel My Spot</button>
+              </motion.div>
+            ) : bookingFlow === 'queue' ? (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 bg-white/5 p-10 rounded-[3rem] border border-white/10 max-w-lg text-center">
+                <button onClick={() => setBookingFlow('none')} className="text-white/40 flex items-center gap-2 hover:text-white transition-all mb-4">
+                  <ChevronRight className="w-4 h-4 rotate-180" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
+                </button>
+                <div className="w-20 h-20 bg-brand-red/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Zap className="w-10 h-10 text-brand-red" />
+                </div>
+                <h3 className="text-3xl font-black uppercase tracking-tight">Rapid <span className="text-brand-red">Queue</span> Entry</h3>
+                <p className="text-white/40 text-xs italic font-serif">Instant walk-in. Pay now to lock your current position #{(queue.length + 1)} in line.</p>
+                
+                <div className="space-y-4 text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Select Service</p>
+                  <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                    {SERVICES.map(s => (
+                      <button 
+                        key={s.id} 
+                        onClick={() => setSelectedService(s.id)}
+                        className={`p-6 rounded-2xl border text-left transition-all flex justify-between items-center ${selectedService === s.id ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                      >
+                        <div>
+                          <p className="font-black text-sm uppercase tracking-tight">{s.name}</p>
+                          <p className="text-[8px] opacity-60">{s.time} process • {s.desc}</p>
+                        </div>
+                        <span className="text-lg font-black italic">R{s.price}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/5 mt-8">
+                   <button 
+                    disabled={!selectedService}
+                    onClick={() => createBooking('queue')}
+                    className="w-full bg-brand-red text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-sm hover:bg-brand-dark transition-all disabled:opacity-20 shadow-2xl flex items-center justify-center gap-3 active:scale-[0.98]"
+                  >
+                    Confirm Booking
+                  </button>
+                </div>
+              </motion.div>
+            ) : bookingFlow === 'scheduled' ? (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 bg-white/5 p-10 rounded-[3rem] border border-white/10 max-w-lg">
+                <button onClick={() => setBookingFlow('none')} className="text-white/40 flex items-center gap-2 hover:text-white transition-all mb-4">
+                  <ChevronRight className="w-4 h-4 rotate-180" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
+                </button>
+                <h3 className="text-3xl font-black uppercase tracking-tight">Pick <span className="text-brand-blue">Scheduled</span> Time</h3>
+                
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">1. Select Service</p>
+                  <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                    {SERVICES.map(s => (
+                      <button 
+                        key={s.id} 
+                        onClick={() => setSelectedService(s.id)}
+                        className={`p-4 rounded-2xl border text-left transition-all ${selectedService === s.id ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                      >
+                        <p className="font-black text-xs uppercase tracking-tight leading-tight mb-1">{s.name}</p>
+                        <p className="text-[8px] opacity-60">R{s.price} • {s.time}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">2. Select Date</p>
+                  <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+                    {nextDates.map(dateObj => (
+                      <button 
+                        key={dateObj.full}
+                        onClick={() => setSelectedDate(dateObj.full)}
+                        className={`min-w-[70px] p-4 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 shrink-0 ${selectedDate === dateObj.full ? 'bg-brand-blue border-brand-blue text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                      >
+                        <span className="text-[8px] font-black uppercase tracking-widest opacity-60">{dateObj.day}</span>
+                        <span className="text-xl font-black">{dateObj.date}</span>
+                        {dateObj.isToday && <span className="text-[6px] font-black uppercase tracking-[0.2em] bg-white/20 px-2 py-0.5 rounded-full">Today</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">3. Select Time</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {timeSlots.map(t => (
+                      <button 
+                        key={t}
+                        onClick={() => setSelectedTime(t)}
+                        className={`p-3 rounded-xl border text-[10px] font-black transition-all ${selectedTime === t ? 'bg-brand-blue border-brand-blue text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                <div className="pt-4 border-t border-white/5 mt-8">
+                   <div className="flex justify-between items-center mb-6">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Grand Total</span>
+                      <span className="text-3xl font-black text-white">R{(SERVICES.find(s => s.id === selectedService)?.price || 0)}</span>
+                   </div>
+
+                   <button 
+                    disabled={!selectedService || (bookingFlow === 'scheduled' && !selectedTime)}
+                    onClick={() => createBooking(bookingFlow as any)}
+                    className="w-full bg-brand-red text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-sm hover:bg-brand-dark transition-all disabled:opacity-20 shadow-2xl shadow-red-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+                  >
+                    Confirm Booking
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
+          </div>
+
+          <div className="relative">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-[3rem] p-8 md:p-12 relative z-10 shadow-3xl shadow-black/80">
+              <div className="flex items-center justify-between mb-12">
+                <h4 className="text-xl font-black uppercase tracking-tight">Live Tracker</h4>
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-green-500/20 text-green-500 rounded-full border border-green-500/20">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500"></div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Operational</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {queue.length > 0 ? queue.slice(0, 5).map((entry, idx) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    key={entry.id}
+                    className={`flex items-center justify-between p-6 rounded-3xl border transition-all ${idx === 0 ? 'bg-brand-blue border-brand-blue text-white shadow-2xl shadow-blue-500/40 relative z-20 overflow-hidden' : 'bg-white/5 border-white/5 text-white/60'}`}
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${idx === 0 ? 'bg-white text-brand-blue' : 'bg-white/10'}`}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <p className={`font-black uppercase tracking-tight ${idx === 0 ? 'text-white' : 'text-white'}`}>{entry.userName.split(' ')[0]}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-[0.2em] opacity-60">{entry.serviceName}</p>
+                      </div>
+                    </div>
+                    {idx === 0 && (
+                      <div className="bg-white/20 px-4 py-1 rounded-xl">
+                        <span className="text-[9px] font-black uppercase tracking-widest">On Deck</span>
+                      </div>
+                    )}
+                  </motion.div>
+                )) : (
+                  <div className="py-24 text-center border-2 border-dashed border-white/10 rounded-[2rem] flex flex-col items-center">
+                    <Users className="w-16 h-16 text-white/5 mb-6" />
+                    <p className="text-white/20 font-black uppercase tracking-[0.4em] text-[10px]">Queue Standby</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Improved Loyalty Section */}
+            <motion.div 
+              whileHover={{ rotate: 0, y: -10 }}
+              initial={{ rotate: 2 }}
+              className="absolute -bottom-8 -right-4 lg:-right-12 z-20 bg-white p-8 rounded-[2.5rem] shadow-3xl w-[280px] border border-slate-100"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-brand-red/10 flex items-center justify-center">
+                    <Trophy className="w-4 h-4 text-brand-red" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Loyalty Stamps</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-black text-brand-red">{profile?.stamps || 0}<span className="text-[10px] text-slate-300">/10</span></span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-5 gap-3 mb-8">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="relative">
+                    <div className={`aspect-square rounded-xl border-2 flex items-center justify-center transition-all ${i < (profile?.stamps || 0) ? 'bg-brand-red border-brand-red text-white' : 'border-slate-100 bg-slate-50 text-slate-200'}`}>
+                      {i < (profile?.stamps || 0) ? <Scissors className="w-3 h-3" /> : <div className="w-1 h-1 bg-current rounded-full" />}
+                    </div>
+                    {(i === 4 || i === 9) && (
+                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white flex items-center justify-center">
+                        <Zap className="w-2 h-2 text-white fill-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className={`p-3 rounded-2xl flex items-center justify-between border transition-all ${profile?.stamps >= 5 ? 'bg-green-50 border-green-100' : 'bg-slate-50 border-transparent'}`}>
+                  <p className={`text-[8px] font-black uppercase tracking-widest ${profile?.stamps >= 5 ? 'text-green-600' : 'text-slate-400'}`}>5 Fills: Free Cap</p>
+                  {profile?.stamps >= 5 ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <div className="w-3 h-3 border border-slate-200 rounded-full" />}
+                </div>
+                <div className={`p-3 rounded-2xl flex items-center justify-between border transition-all ${profile?.stamps >= 10 ? 'bg-brand-blue/5 border-brand-blue/10' : 'bg-slate-50 border-transparent'}`}>
+                  <p className={`text-[8px] font-black uppercase tracking-widest ${profile?.stamps >= 10 ? 'text-brand-blue' : 'text-slate-400'}`}>10 Fills: Free Haircut</p>
+                  {profile?.stamps >= 10 ? <CheckCircle2 className="w-3 h-3 text-brand-blue" /> : <div className="w-3 h-3 border border-slate-200 rounded-full" />}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
       </div>
     </section>
   );
 };
 
+// --- Newsletter / Welcome Section ---
 
 const WelcomeJourney = () => {
   const [email, setEmail] = useState('');
@@ -1077,110 +1171,15 @@ const WelcomeJourney = () => {
   );
 };
 
-const Membership = () => (
-  <section id="membership" className="py-20 bg-white scroll-mt-20">
-    <div className="max-w-4xl mx-auto px-6">
-      <div className="mb-12">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400 mb-2">Sizabantu</p>
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Membership & Loyalty</h2>
-      </div>
-
-      {/* Loyalty Programme */}
-      <div className="grid md:grid-cols-2 gap-8 mb-12">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-3">Stamp Card</h3>
-          <p className="text-sm text-slate-500 leading-relaxed mb-4">
-            Every visit earns you a stamp. Collect 5 stamps and receive a free cap. 
-            Collect 10 stamps and your next haircut is on us.
-          </p>
-          <div className="grid grid-cols-5 gap-2 mb-2">
-            {Array.from({ length: 10 }, (_, i) => (
-              <div key={i} className={`aspect-square border ${i < 5 ? 'border-slate-900 bg-slate-900' : 'border-slate-200'} flex items-center justify-center`}>
-                {i < 5 && <div className="w-2 h-2 bg-white rounded-full" />}
-              </div>
-            ))}
-          </div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest">5 = Free Cap · 10 = Free Cut</p>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-3">Member Benefits</h3>
-          <ul className="space-y-3">
-            {[
-              'Priority queue placement',
-              'Booking history & receipts',
-              'Loyalty reward tracking',
-              'Exclusive member pricing',
-              'Early access to new services',
-            ].map(b => (
-              <li key={b} className="flex items-start gap-3 text-sm text-slate-600">
-                <div className="w-1 h-1 bg-slate-400 rounded-full mt-2 flex-shrink-0" />
-                {b}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Membership Tiers */}
-      <div className="border-t border-slate-100 pt-10">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-6">Membership Tiers</h3>
-        <div className="grid md:grid-cols-3 gap-4">
-          {[
-            { name: 'Regular', visits: '0–9 visits', perks: ['Stamp card', 'Online booking', 'Visit history'] },
-            { name: 'Gold', visits: '10–24 visits', perks: ['All Regular perks', '5% discount', 'Priority queue'] },
-            { name: 'Elite', visits: '25+ visits', perks: ['All Gold perks', '10% discount', 'Reserved slots', 'Complimentary trim touch-ups'] },
-          ].map(tier => (
-            <div key={tier.name} className={`p-5 border ${tier.name === 'Elite' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-100'}`}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 opacity-60">{tier.visits}</p>
-              <p className={`text-lg font-bold mb-4 ${tier.name === 'Elite' ? 'text-white' : 'text-slate-900'}`}>{tier.name}</p>
-              <ul className="space-y-2">
-                {tier.perks.map(p => (
-                  <li key={p} className={`text-xs ${tier.name === 'Elite' ? 'text-slate-300' : 'text-slate-500'}`}>
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* How it works */}
-      <div className="border-t border-slate-100 pt-10 mt-10">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-6">How It Works</h3>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            { step: '01', title: 'Sign In', desc: 'Create your account when booking. No forms, just Google or email.' },
-            { step: '02', title: 'Visit & Earn', desc: 'Every completed session automatically adds a stamp to your card.' },
-            { step: '03', title: 'Redeem Rewards', desc: 'Rewards unlock automatically. Claim them at reception on your next visit.' },
-          ].map(item => (
-            <div key={item.step}>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">{item.step}</p>
-              <p className="text-sm font-semibold text-slate-900 mb-2">{item.title}</p>
-              <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-10 pt-8 border-t border-slate-100">
-        <a href="#book" className="inline-block border border-slate-900 text-slate-900 px-8 py-3 text-xs font-semibold uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-colors">
-          Book & Start Earning
-        </a>
-      </div>
-    </div>
-  </section>
-);
-
 const TopNav = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, logout } = useAuth();
   
   const navLinks = [
-    { name: 'Book Now', href: '#book' },
+    { name: 'Book Session', href: '#book' },
+    { name: 'Services', href: '#pricing' },
     { name: 'Gallery', href: '#portfolio' },
-    { name: 'Membership', href: '#membership' },
+    { name: 'Reviews', href: '#reviews' },
   ];
 
   const handleLoginClick = () => {
@@ -2300,8 +2299,8 @@ export default function App() {
         </ErrorBoundary>
         <WelcomeJourney />
         <HaircutPricing />
-        <Membership />
         <Portfolio />
+        <Reviews />
         <ContactSection />
         <Footer />
       </main>
