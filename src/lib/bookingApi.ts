@@ -1,13 +1,89 @@
-// src/lib/bookingApi.ts
-// Sizabantu Barbershop — Calendar Booking API
-// Calls YOUR Express backend (/api/calendar/*) — no CodeWords dependency.
+// src/lib/bookingApi.ts — SOP-compliant booking API client
+// All writes go through Vercel API functions (bypasses Firestore rules correctly)
+// Auth token automatically attached from Firebase Auth
 
-// In dev: Vite proxies /api → http://localhost:3000
-// In prod: same origin — Express serves both the app and the API
+import { getAuth } from "firebase/auth";
 
-const API_BASE = "/api/calendar";
+const API_BASE = "/api";
 
-interface TimeSlot {
+async function getAuthHeader(): Promise<string> {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  const token = await user.getIdToken();
+  return `Bearer ${token}`;
+}
+
+async function apiCall<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: authHeader,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error ?? `API error ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// ── Booking Creation (SOP-compliant) ────────────────────────────────────────
+
+export interface CreateBookingPayload {
+  type: "queue" | "scheduled";
+  serviceId: string;
+  scheduledAt?: string; // ISO 8601, required for type='scheduled'
+  userName?: string;
+  userEmail?: string;
+}
+
+export interface CreateBookingResponse {
+  success: boolean;
+  bookingId: string;
+  verificationCode: string;
+  queuePosition: number;
+  message: string;
+}
+
+export function createBooking(payload: CreateBookingPayload): Promise<CreateBookingResponse> {
+  return apiCall<CreateBookingResponse>("POST", "/bookings/create", payload);
+}
+
+// ── Admin Operations ─────────────────────────────────────────────────────────
+
+export type BookingStatus =
+  | "pending" | "confirmed" | "checked-in"
+  | "in-progress" | "completed" | "expired" | "cancelled";
+
+export interface UpdateBookingResponse {
+  success: boolean;
+  bookingId: string;
+  status: BookingStatus;
+}
+
+export function adminUpdateBooking(
+  bookingId: string,
+  status: BookingStatus
+): Promise<UpdateBookingResponse> {
+  return apiCall<UpdateBookingResponse>("POST", "/admin/update-booking", { bookingId, status });
+}
+
+export interface DeleteBookingResponse {
+  success: boolean;
+  bookingId: string;
+}
+
+export function adminDeleteBooking(bookingId: string): Promise<DeleteBookingResponse> {
+  return apiCall<DeleteBookingResponse>("DELETE", `/admin/delete-booking?bookingId=${bookingId}`);
+}
+
+// ── Availability (Google Calendar) ──────────────────────────────────────────
+
+export interface TimeSlot {
   start: string;
   end: string;
   display: string;
@@ -19,86 +95,15 @@ export interface AvailabilityResponse {
   slots: TimeSlot[];
 }
 
-export interface CalendarBookingPayload {
-  serviceName: string;
-  userName: string;
-  userEmail?: string;
-  scheduledAt: string;   // ISO 8601 e.g. "2026-05-06T10:00:00+02:00"
-  durationMinutes?: number;
-  verificationCode: string;
-  barberName?: string;
-  type?: "scheduled" | "queue";
-  firestoreBookingId?: string; // if set, eventId is written back to Firestore
-}
-
-export interface CreateBookingResponse {
-  success: boolean;
-  eventId: string;
-  htmlLink: string;
-  start: string;
-  end: string;
-}
-
-export interface CancelBookingResponse {
-  success: boolean;
-  message: string;
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-async function apiCall<T>(
-  method: string,
-  path: string,
-  body?: unknown
-): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? `API error ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-// ── Public API ─────────────────────────────────────────────────────────────
-
-/**
- * Check available time slots for a given date.
- * @param date       - "YYYY-MM-DD"
- * @param durationMin - appointment length in minutes (default 30)
- */
-export function getAvailability(
-  date: string,
-  durationMin = 30
-): Promise<AvailabilityResponse> {
+export function getAvailability(date: string, durationMin = 30): Promise<AvailabilityResponse> {
   return apiCall<AvailabilityResponse>(
     "GET",
-    `/availability?date=${date}&duration=${durationMin}`
+    `/calendar/availability?date=${date}&duration=${durationMin}`
   );
 }
 
-/**
- * Create a Google Calendar event for a confirmed booking.
- * Pass firestoreBookingId to auto-write eventId back to Firestore.
- */
-export function createBooking(
-  payload: CalendarBookingPayload
-): Promise<CreateBookingResponse> {
-  return apiCall<CreateBookingResponse>("POST", "/booking", payload);
-}
+// ── Booking Verification (Check-in) ─────────────────────────────────────────
 
-/**
- * Cancel a booking — deletes the Google Calendar event.
- * Pass firestoreBookingId to also mark the Firestore doc as cancelled.
- */
-export function cancelBooking(
-  eventId: string,
-  firestoreBookingId?: string
-): Promise<CancelBookingResponse> {
-  return apiCall<CancelBookingResponse>("DELETE", `/booking/${eventId}`, {
-    firestoreBookingId,
-  });
+export function verifyBookingCode(code: string): Promise<{ success: boolean; booking: any }> {
+  return apiCall("POST", "/bookings/verify", { code });
 }
