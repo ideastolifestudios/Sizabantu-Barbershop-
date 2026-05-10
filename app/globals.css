@@ -46,10 +46,6 @@ html {
 }
 
 body {
-  background: var(--szb-black);
-  color: var(--szb-cream);
-  font-family: var(--font-syne);
-  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

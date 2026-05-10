@@ -9,6 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        "brand-red":  "#C10020",
+        "brand-blue": "#0B2447",
+        "brand-dark": "#111111",
         "szb-black":    "#0a0a0a",
         "szb-charcoal": "#141414",
         "szb-dark":     "#1a1a1a",

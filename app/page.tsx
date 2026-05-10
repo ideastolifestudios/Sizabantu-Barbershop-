@@ -65,7 +65,6 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 import { io } from 'socket.io-client';
 
-
 // Inline Instagram icon (removed from lucide-react v0.400+)
 function InstagramIcon({ className = "" }: { className?: string }) {
   return (
@@ -75,7 +74,6 @@ function InstagramIcon({ className = "" }: { className?: string }) {
   );
 }
 
-// Skip SSR — this page uses Firebase + socket.io which need the browser
 export const dynamic = 'force-dynamic';
 
 // Initialize Firebase
@@ -574,95 +572,6 @@ const AdminDashboard = () => {
   );
 };
 
-const MembershipInfo = ({ profile }: { profile: any }) => {
-  const loyaltyRewards = [
-    { threshold: 5, title: 'Barber Cap', desc: 'Sizabantu branded cap after 5 sessions.', icon: <Zap className="w-5 h-5 text-brand-red" /> },
-    { threshold: 10, title: 'Gratis Cut', desc: 'The 10th session is on the house.', icon: <Trophy className="w-5 h-5 text-brand-blue" /> },
-  ];
-
-  return (
-    <section id="membership" className="py-24 bg-slate-50 scroll-mt-20">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-20">
-          <div>
-            <span className="text-brand-red font-black uppercase tracking-[0.4em] text-[9px] mb-6 block">Elite Program</span>
-            <h2 className="text-5xl md:text-6xl font-black uppercase tracking-tighter text-slate-900 leading-tight mb-8">
-              Signature <span className="text-brand-blue italic font-serif lowercase tracking-normal">Club</span>
-            </h2>
-            <p className="text-slate-500 text-lg mb-12 font-serif italic leading-relaxed">
-              Automated rewards for the dedicated gentleman. Track your progression and unlock premium benefits.
-            </p>
-
-            <div className="grid sm:grid-cols-2 gap-4 mb-16">
-              {loyaltyRewards.map((reward, i) => (
-                <div key={i} className="py-6 pr-6 border-l-2 border-slate-100 pl-6 hover:border-brand-red transition-colors">
-                  <div className="mb-4">{reward.icon}</div>
-                  <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 mb-2">{reward.title}</h4>
-                  <p className="text-slate-400 text-xs font-medium leading-relaxed mb-3">{reward.desc}</p>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-blue">Threshold: {reward.threshold} Sessions</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Frameless Personal Status */}
-            {profile && (
-              <div className="pt-10 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Your Protocol</p>
-                  <p className="text-xl font-black uppercase text-slate-900">{profile.displayName || 'Recognized Member'}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-4xl font-black italic text-brand-red leading-none">{profile.stamps || 0}</p>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-2">Active Stamps</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-             <div className="space-y-12 py-10">
-                <div className="flex gap-6 items-start">
-                  <span className="text-brand-red font-black text-xl italic mt-1 leading-none">01</span>
-                  <div>
-                    <h5 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-2 underline underline-offset-4 decoration-brand-red/30">Secure Visit</h5>
-                    <p className="text-slate-500 text-xs leading-relaxed font-medium">Verify your identity via the digital entry portal upon arrival.</p>
-                  </div>
-                </div>
-                <div className="flex gap-6 items-start">
-                  <span className="text-brand-red font-black text-xl italic mt-1 leading-none">02</span>
-                  <div>
-                    <h5 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-2 underline underline-offset-4 decoration-brand-red/30">Acquire Stamps</h5>
-                    <p className="text-slate-500 text-xs leading-relaxed font-medium">One stamp is automatically appended to your profile per session.</p>
-                  </div>
-                </div>
-                <div className="flex gap-6 items-start">
-                  <span className="text-brand-red font-black text-xl italic mt-1 leading-none">03</span>
-                  <div>
-                    <h5 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-2 underline underline-offset-4 decoration-brand-red/30">Unlock Rewards</h5>
-                    <p className="text-slate-500 text-xs leading-relaxed font-medium">Reach 5 or 10 stamps to trigger your exclusive privilege assets.</p>
-                  </div>
-                </div>
-             </div>
-
-             <div className="mt-12 bg-slate-900 text-white p-12 rounded-[3.5rem] relative overflow-hidden group">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
-                <div className="relative z-10 flex items-center justify-between">
-                  <div>
-                    <p className="text-brand-red font-black uppercase tracking-widest text-[9px] mb-2">System Status</p>
-                    <p className="text-xl font-black uppercase tracking-tight">Active Protocol</p>
-                  </div>
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-brand-red" />
-                  </div>
-                </div>
-             </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
 const BookingSystem = ({ profile }: { profile: any }) => {
   const { 
     authStep, setAuthStep, email, setEmail, 
@@ -672,19 +581,15 @@ const BookingSystem = ({ profile }: { profile: any }) => {
   } = useAuth();
   const [activeBooking, setActiveBooking] = useState<any>(null);
   const [queue, setQueue] = useState<any[]>([]);
-  const [step, setStep] = useState<number>(0); // 0: Start, 1: Type Selection, 2: Service Selection, 3: Personal Details, 4: Confirmed
-  const [bookingType, setBookingType] = useState<'queue' | 'scheduled' | null>(null);
+  const [bookingFlow, setBookingFlow] = useState<'none' | 'queue' | 'scheduled'>('none');
   const [selectedService, setSelectedService] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState<string>('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [numPeople, setNumPeople] = useState('1');
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [justBooked, setJustBooked] = useState<any>(null);
 
   const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
   
+  // Generate next 7 days for the calendar
   const nextDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -697,15 +602,7 @@ const BookingSystem = ({ profile }: { profile: any }) => {
   });
 
   useEffect(() => {
-    if (profile && !customerName) setCustomerName(profile.displayName || '');
-  }, [profile]);
-
-  useEffect(() => {
-    if (!profile) {
-      setActiveBooking(null);
-      setQueue([]);
-      return;
-    }
+    if (!profile) return;
 
     const q = query(
       collection(db, 'bookings'),
@@ -717,7 +614,7 @@ const BookingSystem = ({ profile }: { profile: any }) => {
     const unsubscribeBookings = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
         setActiveBooking({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
-        setStep(0);
+        setBookingFlow('none');
       } else {
         setActiveBooking(null);
       }
@@ -740,21 +637,16 @@ const BookingSystem = ({ profile }: { profile: any }) => {
     };
   }, [profile]);
 
-  const handleStartBooking = (type: 'queue' | 'scheduled') => {
+  const createBooking = async (type: 'queue' | 'scheduled') => {
     if (!profile) {
       setShowLoginModal(true);
       return;
     }
-    setBookingType(type);
-    setStep(2);
-  };
-
-  const createBooking = async () => {
-    if (!profile || !bookingType || !selectedService) return;
+    if (!selectedService) return;
 
     let scheduledDate = serverTimestamp();
 
-    if (bookingType === 'scheduled' && selectedTime) {
+    if (type === 'scheduled' && selectedTime) {
       const bookingDate = new Date(selectedDate);
       const [hours, minutes] = selectedTime.split(':');
       bookingDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -764,15 +656,13 @@ const BookingSystem = ({ profile }: { profile: any }) => {
     const service = SERVICES.find(s => s.id === selectedService);
     const bookingData = {
       userId: profile.uid,
-      userName: customerName || profile.displayName,
+      userName: profile.displayName,
       userEmail: profile.email,
-      userPhone: customerPhone,
-      numberOfPeople: parseInt(numPeople),
-      type: bookingType,
+      type,
       location: 'shop',
       clientAddress: 'Klipfontein View Shop',
       travelFee: 0,
-      totalPaid: (service?.price || 0) * parseInt(numPeople),
+      totalPaid: (service?.price || 0),
       status: 'confirmed', 
       serviceId: selectedService,
       serviceName: service?.name || 'Custom Cut',
@@ -782,16 +672,15 @@ const BookingSystem = ({ profile }: { profile: any }) => {
     };
 
     try {
-      const docRef = await addDoc(collection(db, 'bookings'), bookingData);
+      await addDoc(collection(db, 'bookings'), bookingData);
       
+      // Emit to server to trigger Google Calendar sync
       socket.emit('booking:new', { 
         ...bookingData, 
-        id: docRef.id,
         scheduledAt: scheduledDate instanceof Timestamp ? scheduledDate.toDate().toISOString() : new Date().toISOString() 
       });
 
-      setJustBooked({ ...bookingData, id: docRef.id });
-      setStep(4);
+      setBookingFlow('none');
       setSelectedService('');
       setSelectedTime('');
     } catch (err) {
@@ -799,18 +688,11 @@ const BookingSystem = ({ profile }: { profile: any }) => {
     }
   };
 
-  const resetBooking = () => {
-    setStep(0);
-    setBookingType(null);
-    setSelectedService('');
-    setSelectedTime('');
-    setJustBooked(null);
-  };
-
   return (
-    <section id="book" className="py-24 bg-slate-900 text-white scroll-mt-20 relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-black opacity-50"></div>
+    <section id="book" className="py-24 bg-slate-900 text-white overflow-hidden relative scroll-mt-20">
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
       
+      {/* Login Modal */}
       <AnimatePresence>
         {showLoginModal && (
           <motion.div 
@@ -831,39 +713,62 @@ const BookingSystem = ({ profile }: { profile: any }) => {
               >
                 <X className="w-4 h-4" />
               </button>
+              
               <div className="flex justify-center mb-8">
                 <div className="w-16 h-16 bg-brand-red/10 flex items-center justify-center rounded-2xl">
                   <User className="w-8 h-8 text-brand-red" />
                 </div>
               </div>
-              <h3 className="text-2xl font-black uppercase tracking-tight mb-4 text-slate-900">Sign In</h3>
-              <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8">Create an account or login to manage your sessions.</p>
+              <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Member Entry</h3>
+              <p className="text-slate-400 text-xs font-bold leading-relaxed mb-8">Please sign in to secure your session and earn loyalty stamps.</p>
               
               <div className="space-y-4">
                 <AnimatePresence mode="wait">
                   {authStep === 'methods' && (
                     <motion.div key="methods" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
-                      <button onClick={() => setAuthStep('email')} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-brand-red transition-all flex items-center justify-center gap-3">
+                      <button 
+                        onClick={() => setAuthStep('email')}
+                        className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-brand-red transition-all flex items-center justify-center gap-3"
+                      >
                         <Mail className="w-4 h-4" />
                         Continue with Email
                       </button>
-                      <button onClick={async () => { await loginGoogle(); if (auth.currentUser) setShowLoginModal(false); }} className="w-full bg-slate-50 border border-slate-100 text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all flex items-center justify-center gap-3">
+                      <button 
+                        onClick={async () => { await loginGoogle(); if (auth.currentUser) setShowLoginModal(false); }}
+                        className="w-full bg-slate-50 border border-slate-100 text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all flex items-center justify-center gap-3"
+                      >
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-                        Google Account
+                        Google Login
                       </button>
                     </motion.div>
                   )}
+
                   {authStep === 'email' && (
                     <motion.form key="email" onSubmit={requestOTP} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email Address" className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-2xl text-slate-900 font-bold outline-none focus:border-brand-blue" />
-                      <button type="submit" disabled={isSendingCode} className="w-full bg-brand-red text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]">{isSendingCode ? 'Sending...' : 'Request Access'}</button>
+                      <input 
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@domain.com"
+                        className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-2xl text-slate-900 font-bold outline-none focus:border-brand-blue"
+                      />
+                      <button type="submit" disabled={isSendingCode} className="w-full bg-brand-red text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]">
+                        {isSendingCode ? 'Sending...' : 'Send Access Code'}
+                      </button>
                       <button type="button" onClick={() => setAuthStep('methods')} className="text-[9px] font-black uppercase text-slate-400 underline">Back</button>
                     </motion.form>
                   )}
+
                   {authStep === 'otp' && (
                     <motion.form key="otp" onSubmit={async (e) => { await verifyOTP(e); if (auth.currentUser) setShowLoginModal(false); }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                      <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-2xl text-slate-900 font-black text-2xl text-center tracking-widest outline-none" />
-                      <button type="submit" className="w-full bg-brand-blue text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]">Verify Session</button>
+                      <input 
+                        type="text"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        placeholder="000 000"
+                        className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-2xl text-slate-900 font-black text-2xl text-center tracking-widest outline-none"
+                      />
+                      <button type="submit" className="w-full bg-brand-blue text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]">Verify & Continue</button>
                     </motion.form>
                   )}
                 </AnimatePresence>
@@ -874,163 +779,289 @@ const BookingSystem = ({ profile }: { profile: any }) => {
       </AnimatePresence>
       
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-          {step === 0 && !activeBooking && (
-            <div className="space-y-12 max-w-5xl mx-auto">
-              <div className="text-center mb-12">
-                 <span className="text-brand-red font-black uppercase tracking-[0.3em] text-[8px] mb-4 block">Reservation Status: Active</span>
-                 <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4">Select <span className="text-brand-blue">Protocol</span></h2>
-                 <p className="text-white/30 text-xs italic font-serif max-w-md mx-auto">Automated management system for both live queue and priority scheduling.</p>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <button onClick={() => handleStartBooking('queue')} className="group p-10 border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-left">
-                  <div className="flex items-center justify-between mb-8">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-red">01. Live Queue</span>
-                    <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-brand-red group-hover:translate-x-1 transition-all" />
+          {/* Main Action Buttons (Front UX) */}
+          {bookingFlow === 'none' && !activeBooking && (
+            <div className="space-y-12 mb-16">
+              <div className="grid md:grid-cols-2 gap-8">
+                <motion.button 
+                  onClick={() => setBookingFlow('queue')} 
+                  whileHover={{ y: -5, scale: 1.01 }}
+                  className="bg-brand-red text-white p-12 rounded-[3.5rem] shadow-2xl shadow-red-500/20 text-left relative overflow-hidden group border border-brand-red/50"
+                >
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-80">Join Live Queue</span>
+                    </div>
+                    <h3 className="text-4xl md:text-5xl font-black uppercase mb-4 leading-none">Walk-In <br/>Now</h3>
+                    <p className="text-white/70 text-xs font-bold font-serif italic mb-8 max-w-[240px]">Perfect for immediate service. Our automated system manages the line.</p>
+                    
+                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                      <p className="text-[9px] font-black uppercase tracking-widest mb-2 opacity-60">Operating Hours</p>
+                      <div className="flex justify-between items-center text-[10px] font-bold">
+                        <span>Tue - Sun</span>
+                        <span className="text-white/40">|</span>
+                        <span>09:00 - 18:00</span>
+                      </div>
+                      <p className="text-[8px] mt-2 opacity-40 uppercase tracking-widest italic font-serif">Including Public Holidays</p>
+                    </div>
                   </div>
-                  <h3 className="text-3xl font-black uppercase tracking-tight mb-4 leading-none">Instant <br/>Entry</h3>
-                  <p className="text-white/40 text-[10px] uppercase font-bold tracking-widest">Wait Time: ~{(queue.length * 15)}m</p>
-                </button>
+                  <Users className="absolute -bottom-12 -right-12 w-64 h-64 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                </motion.button>
 
-                <button onClick={() => handleStartBooking('scheduled')} className="group p-10 border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all text-left">
-                  <div className="flex items-center justify-between mb-8">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-blue">02. Priority</span>
-                    <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-brand-blue group-hover:translate-x-1 transition-all" />
+                <motion.button 
+                  onClick={() => setBookingFlow('scheduled')} 
+                  whileHover={{ y: -5, scale: 1.01 }}
+                  className="bg-white/5 border border-white/10 p-12 rounded-[3.5rem] text-left relative overflow-hidden group shadow-2xl shadow-black/40"
+                >
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-brand-blue/20 p-2 rounded-xl backdrop-blur-md border border-brand-blue/30">
+                        <Calendar className="w-5 h-5 text-brand-blue" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/50">Priority Booking</span>
+                    </div>
+                    <h3 className="text-4xl md:text-5xl font-black uppercase mb-4 leading-none">Avoid <br/>The Line</h3>
+                    <p className="text-white/40 text-xs font-bold font-serif italic mb-8 max-w-[240px]">Secure your specific time slot in advance for zero wait time.</p>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <div className="bg-white/5 px-4 py-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-widest text-brand-blue">No Waiting</div>
+                      <div className="bg-white/5 px-4 py-2 rounded-full border border-white/5 text-[9px] font-black uppercase tracking-widest text-white/40">Guaranteed Slot</div>
+                    </div>
                   </div>
-                  <h3 className="text-3xl font-black uppercase tracking-tight mb-4 leading-none">Fixed <br/>Schedule</h3>
-                  <p className="text-white/40 text-[10px] uppercase font-bold tracking-widest">Guaranteed Timeslot</p>
-                </button>
+                  <Clock className="absolute -bottom-12 -right-12 w-64 h-64 opacity-5 group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                </motion.button>
               </div>
             </div>
           )}
 
-          <div className="grid lg:grid-cols-12 gap-16 items-start max-w-6xl mx-auto">
-            <div className="lg:col-span-12">
+          <div className="grid lg:grid-cols-2 gap-16 items-start">
+            <div className="className">
               {activeBooking ? (
-                <div className="border border-white/5 p-12 text-center max-w-xl mx-auto bg-white/[0.02]">
-                  <h3 className="text-3xl font-black uppercase tracking-tight mb-8">Active <span className="text-brand-blue">Session</span></h3>
-                  <div className="grid grid-cols-2 gap-4 mb-10 text-left">
-                    <div className="p-6 border border-white/5">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-2">Queue Position</p>
-                      <p className="text-4xl font-black">{activeBooking.type === 'queue' ? (queue.findIndex(b => b.id === activeBooking.id) + 1 || '...') : 'STBY'}</p>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/10 backdrop-blur-xl border border-white/10 p-10 rounded-[3rem] relative overflow-hidden group shadow-2xl shadow-black/50">
+                <div className="p-8 bg-white/5 rounded-[2rem] mb-8 border border-white/10">
+                  <div className="flex items-center gap-4 text-white/80 mb-6 bg-brand-red/10 p-4 rounded-xl border border-brand-red/20">
+                    <AlertCircle className="w-5 h-5 text-brand-red" />
+                    <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Arrive 10 minutes before session. Late arrivals auto-expire.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Queue Pos</p>
+                      <p className="text-4xl font-black">{activeBooking.type === 'queue' ? (queue.findIndex(b => b.id === activeBooking.id) + 1 || '...') : 'STA'}</p>
                     </div>
-                    <div className="p-6 border border-white/5">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-2">Est. Wait</p>
-                      <p className="text-4xl font-black">~{(activeBooking.type === 'queue' ? (queue.findIndex(b => b.id === activeBooking.id) * 15) : 10)}m</p>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Est. Wait</p>
+                      <p className="text-4xl font-black">~{(activeBooking.type === 'queue' ? (queue.findIndex(b => b.id === activeBooking.id) * 15) : 0) || 5}m</p>
                     </div>
                   </div>
-                  <button onClick={() => updateDoc(doc(db, 'bookings', activeBooking.id), { status: 'missed' })} className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 hover:text-brand-red transition-all underline underline-offset-8">Cancel Appointment</button>
                 </div>
-              ) : step === 2 ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto w-full">
-                  <button onClick={() => setStep(0)} className="text-white/20 flex items-center gap-2 hover:text-white transition-all mb-8 uppercase text-[9px] font-black tracking-widest">
-                    <ArrowRight className="w-3 h-3 rotate-180" />
-                    Back
-                  </button>
-                  
-                  <div className="space-y-10">
-                    <div className="grid grid-cols-1 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30 ml-2">Service Portfolio</label>
-                        <select 
-                          value={selectedService} 
-                          onChange={(e) => setSelectedService(e.target.value)}
-                          className="w-full bg-slate-900 border border-white/10 p-5 rounded-none text-white font-black uppercase text-xs outline-none focus:border-brand-red transition-all appearance-none cursor-pointer"
-                        >
-                          <option value="">Choose Service</option>
-                          {SERVICES.map(s => <option key={s.id} value={s.id}>{s.name} - R{s.price}</option>)}
-                        </select>
-                      </div>
-
-                      {bookingType === 'scheduled' && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-white/30 ml-2">Date</label>
-                            <select value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-900 border border-white/10 p-5 rounded-none text-white text-xs outline-none focus:border-brand-blue uppercase font-black appearance-none cursor-pointer">
-                              {nextDates.map(d => <option key={d.full} value={d.full}>{d.day} {d.date}</option>)}
-                            </select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-white/30 ml-2">Time</label>
-                            <select value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} className="w-full bg-slate-900 border border-white/10 p-5 rounded-none text-white text-xs outline-none focus:border-brand-blue uppercase font-black appearance-none cursor-pointer">
-                              <option value="">Select Time</option>
-                              {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button onClick={() => setStep(3)} disabled={!selectedService || (bookingType === 'scheduled' && !selectedTime)} className="w-full bg-brand-red text-white py-6 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-brand-dark transition-all disabled:opacity-20 active:scale-95">
-                      Next Step
-                    </button>
-                  </div>
-                </motion.div>
-              ) : step === 3 ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto w-full">
-                  <button onClick={() => setStep(2)} className="text-white/20 flex items-center gap-2 hover:text-white transition-all mb-8 uppercase text-[9px] font-black tracking-widest">
-                    <ArrowRight className="w-3 h-3 rotate-180" />
-                    Adjust Selection
-                  </button>
-                  
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30 ml-2">Your Name</label>
-                        <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Full Name" className="w-full bg-slate-900 border border-white/10 p-5 text-white text-xs font-bold outline-none focus:border-brand-blue" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-white/30 ml-2">Mobile Number</label>
-                        <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+27 ..." className="w-full bg-slate-900 border border-white/10 p-5 text-white text-xs font-bold outline-none focus:border-brand-blue" />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-white/30 ml-2">Additional Clients</label>
-                      <select value={numPeople} onChange={(e) => setNumPeople(e.target.value)} className="w-full bg-slate-900 border border-white/10 p-5 text-white text-xs font-bold outline-none focus:border-brand-blue appearance-none cursor-pointer">
-                        {[1,2,3,4,5].map(n => <option key={n} value={n}>{n} person{n > 1 ? 's' : ''}</option>)}
-                      </select>
-                    </div>
-
-                    <div className="pt-8 border-t border-white/5 mt-8">
-                       <div className="flex justify-between items-center mb-8">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Summary Total</span>
-                          <span className="text-4xl font-black text-white italic">R{(SERVICES.find(s => s.id === selectedService)?.price || 0) * parseInt(numPeople)}</span>
-                       </div>
-                       <button 
-                        disabled={!customerName || !customerPhone} 
-                        onClick={createBooking} 
-                        className="w-full bg-brand-red text-white py-6 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-brand-dark transition-all disabled:opacity-20 active:scale-95"
+                <button onClick={() => updateDoc(doc(db, 'bookings', activeBooking.id), { status: 'missed' })} className="text-[9px] font-black uppercase tracking-widest text-white/30 hover:text-brand-red transition-all underline underline-offset-8">Cancel My Spot</button>
+              </motion.div>
+            ) : bookingFlow === 'queue' ? (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 bg-white/5 p-10 rounded-[3rem] border border-white/10 max-w-lg text-center">
+                <button onClick={() => setBookingFlow('none')} className="text-white/40 flex items-center gap-2 hover:text-white transition-all mb-4">
+                  <ChevronRight className="w-4 h-4 rotate-180" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
+                </button>
+                <div className="w-20 h-20 bg-brand-red/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Zap className="w-10 h-10 text-brand-red" />
+                </div>
+                <h3 className="text-3xl font-black uppercase tracking-tight">Rapid <span className="text-brand-red">Queue</span> Entry</h3>
+                <p className="text-white/40 text-xs italic font-serif">Instant walk-in. Pay now to lock your current position #{(queue.length + 1)} in line.</p>
+                
+                <div className="space-y-4 text-left">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Select Service</p>
+                  <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                    {SERVICES.map(s => (
+                      <button 
+                        key={s.id} 
+                        onClick={() => setSelectedService(s.id)}
+                        className={`p-6 rounded-2xl border text-left transition-all flex justify-between items-center ${selectedService === s.id ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
                       >
-                        Confirm Booking
+                        <div>
+                          <p className="font-black text-sm uppercase tracking-tight">{s.name}</p>
+                          <p className="text-[8px] opacity-60">{s.time} process • {s.desc}</p>
+                        </div>
+                        <span className="text-lg font-black italic">R{s.price}</span>
                       </button>
-                    </div>
+                    ))}
                   </div>
-                </motion.div>
-              ) : step === 4 && justBooked ? (
-                <div className="bg-white p-16 text-slate-900 text-center max-w-xl mx-auto relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-brand-red"></div>
-                  <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-8" />
-                  <h3 className="text-3xl font-black uppercase tracking-tight mb-4">Confirmed</h3>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-12">Session Status: Authorized</p>
-                  
-                  <div className="space-y-4 text-left border-y border-slate-100 py-8 mb-12">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                      <span className="text-slate-400">Treatment</span>
-                      <span>{justBooked.serviceName}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                      <span className="text-slate-400">Total Settlement</span>
-                      <span className="text-xl italic">R{justBooked.totalPaid}</span>
-                    </div>
-                  </div>
+                </div>
 
-                  <button onClick={resetBooking} className="w-full bg-slate-900 text-white py-5 font-black uppercase tracking-[0.2em] text-[10px] hover:bg-brand-red transition-all">
-                    Finish Process
+                <div className="pt-4 border-t border-white/5 mt-8">
+                   <button 
+                    disabled={!selectedService}
+                    onClick={() => createBooking('queue')}
+                    className="w-full bg-brand-red text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-sm hover:bg-brand-dark transition-all disabled:opacity-20 shadow-2xl flex items-center justify-center gap-3 active:scale-[0.98]"
+                  >
+                    Confirm Booking
                   </button>
                 </div>
-              ) : null}
-            </div>
+              </motion.div>
+            ) : bookingFlow === 'scheduled' ? (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 bg-white/5 p-10 rounded-[3rem] border border-white/10 max-w-lg">
+                <button onClick={() => setBookingFlow('none')} className="text-white/40 flex items-center gap-2 hover:text-white transition-all mb-4">
+                  <ChevronRight className="w-4 h-4 rotate-180" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Back</span>
+                </button>
+                <h3 className="text-3xl font-black uppercase tracking-tight">Pick <span className="text-brand-blue">Scheduled</span> Time</h3>
+                
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">1. Select Service</p>
+                  <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                    {SERVICES.map(s => (
+                      <button 
+                        key={s.id} 
+                        onClick={() => setSelectedService(s.id)}
+                        className={`p-4 rounded-2xl border text-left transition-all ${selectedService === s.id ? 'bg-brand-red border-brand-red text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+                      >
+                        <p className="font-black text-xs uppercase tracking-tight leading-tight mb-1">{s.name}</p>
+                        <p className="text-[8px] opacity-60">R{s.price} • {s.time}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">2. Select Date</p>
+                  <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+                    {nextDates.map(dateObj => (
+                      <button 
+                        key={dateObj.full}
+                        onClick={() => setSelectedDate(dateObj.full)}
+                        className={`min-w-[70px] p-4 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 shrink-0 ${selectedDate === dateObj.full ? 'bg-brand-blue border-brand-blue text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                      >
+                        <span className="text-[8px] font-black uppercase tracking-widest opacity-60">{dateObj.day}</span>
+                        <span className="text-xl font-black">{dateObj.date}</span>
+                        {dateObj.isToday && <span className="text-[6px] font-black uppercase tracking-[0.2em] bg-white/20 px-2 py-0.5 rounded-full">Today</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">3. Select Time</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {timeSlots.map(t => (
+                      <button 
+                        key={t}
+                        onClick={() => setSelectedTime(t)}
+                        className={`p-3 rounded-xl border text-[10px] font-black transition-all ${selectedTime === t ? 'bg-brand-blue border-brand-blue text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+
+                <div className="pt-4 border-t border-white/5 mt-8">
+                   <div className="flex justify-between items-center mb-6">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Grand Total</span>
+                      <span className="text-3xl font-black text-white">R{(SERVICES.find(s => s.id === selectedService)?.price || 0)}</span>
+                   </div>
+
+                   <button 
+                    disabled={!selectedService || (bookingFlow === 'scheduled' && !selectedTime)}
+                    onClick={() => createBooking(bookingFlow as any)}
+                    className="w-full bg-brand-red text-white py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-sm hover:bg-brand-dark transition-all disabled:opacity-20 shadow-2xl shadow-red-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+                  >
+                    Confirm Booking
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
           </div>
+
+          <div className="relative">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-[3rem] p-8 md:p-12 relative z-10 shadow-3xl shadow-black/80">
+              <div className="flex items-center justify-between mb-12">
+                <h4 className="text-xl font-black uppercase tracking-tight">Live Tracker</h4>
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-green-500/20 text-green-500 rounded-full border border-green-500/20">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500"></div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Operational</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {queue.length > 0 ? queue.slice(0, 5).map((entry, idx) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    key={entry.id}
+                    className={`flex items-center justify-between p-6 rounded-3xl border transition-all ${idx === 0 ? 'bg-brand-blue border-brand-blue text-white shadow-2xl shadow-blue-500/40 relative z-20 overflow-hidden' : 'bg-white/5 border-white/5 text-white/60'}`}
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${idx === 0 ? 'bg-white text-brand-blue' : 'bg-white/10'}`}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <p className={`font-black uppercase tracking-tight ${idx === 0 ? 'text-white' : 'text-white'}`}>{entry.userName.split(' ')[0]}</p>
+                        <p className="text-[8px] font-bold uppercase tracking-[0.2em] opacity-60">{entry.serviceName}</p>
+                      </div>
+                    </div>
+                    {idx === 0 && (
+                      <div className="bg-white/20 px-4 py-1 rounded-xl">
+                        <span className="text-[9px] font-black uppercase tracking-widest">On Deck</span>
+                      </div>
+                    )}
+                  </motion.div>
+                )) : (
+                  <div className="py-24 text-center border-2 border-dashed border-white/10 rounded-[2rem] flex flex-col items-center">
+                    <Users className="w-16 h-16 text-white/5 mb-6" />
+                    <p className="text-white/20 font-black uppercase tracking-[0.4em] text-[10px]">Queue Standby</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Improved Loyalty Section */}
+            <motion.div 
+              whileHover={{ rotate: 0, y: -10 }}
+              initial={{ rotate: 2 }}
+              className="absolute -bottom-8 -right-4 lg:-right-12 z-20 bg-white p-8 rounded-[2.5rem] shadow-3xl w-[280px] border border-slate-100"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-brand-red/10 flex items-center justify-center">
+                    <Trophy className="w-4 h-4 text-brand-red" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Loyalty Stamps</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-black text-brand-red">{profile?.stamps || 0}<span className="text-[10px] text-slate-300">/10</span></span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-5 gap-3 mb-8">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="relative">
+                    <div className={`aspect-square rounded-xl border-2 flex items-center justify-center transition-all ${i < (profile?.stamps || 0) ? 'bg-brand-red border-brand-red text-white' : 'border-slate-100 bg-slate-50 text-slate-200'}`}>
+                      {i < (profile?.stamps || 0) ? <Scissors className="w-3 h-3" /> : <div className="w-1 h-1 bg-current rounded-full" />}
+                    </div>
+                    {(i === 4 || i === 9) && (
+                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-yellow-400 rounded-full border-2 border-white flex items-center justify-center">
+                        <Zap className="w-2 h-2 text-white fill-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className={`p-3 rounded-2xl flex items-center justify-between border transition-all ${profile?.stamps >= 5 ? 'bg-green-50 border-green-100' : 'bg-slate-50 border-transparent'}`}>
+                  <p className={`text-[8px] font-black uppercase tracking-widest ${profile?.stamps >= 5 ? 'text-green-600' : 'text-slate-400'}`}>5 Fills: Free Cap</p>
+                  {profile?.stamps >= 5 ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <div className="w-3 h-3 border border-slate-200 rounded-full" />}
+                </div>
+                <div className={`p-3 rounded-2xl flex items-center justify-between border transition-all ${profile?.stamps >= 10 ? 'bg-brand-blue/5 border-brand-blue/10' : 'bg-slate-50 border-transparent'}`}>
+                  <p className={`text-[8px] font-black uppercase tracking-widest ${profile?.stamps >= 10 ? 'text-brand-blue' : 'text-slate-400'}`}>10 Fills: Free Haircut</p>
+                  {profile?.stamps >= 10 ? <CheckCircle2 className="w-3 h-3 text-brand-blue" /> : <div className="w-3 h-3 border border-slate-200 rounded-full" />}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -1142,9 +1173,10 @@ const TopNav = () => {
   const { user, profile, logout } = useAuth();
   
   const navLinks = [
-    { name: 'Book Now', href: '#book' },
+    { name: 'Book Session', href: '#book' },
+    { name: 'Services', href: '#pricing' },
     { name: 'Gallery', href: '#portfolio' },
-    { name: 'Membership', href: '#membership' },
+    { name: 'Reviews', href: '#reviews' },
   ];
 
   const handleLoginClick = () => {
@@ -1558,45 +1590,98 @@ const Mission = () => {
 
 const HaircutPricing = () => {
   return (
-    <section id="pricing" className="bg-white text-slate-900 py-32 scroll-mt-20">
+    <section id="pricing" className="bg-slate-50 text-slate-900 py-20 md:py-32 scroll-mt-10">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid lg:grid-cols-12 gap-16 items-start">
-          <div className="lg:col-span-4">
-             <span className="text-brand-red font-black uppercase tracking-[0.4em] text-[9px] mb-6 block">Elite Menu</span>
-             <h2 className="text-5xl font-black uppercase tracking-tighter leading-none mb-8">
-               Service <br/><span className="text-brand-blue italic font-serif lowercase tracking-normal">Tariffs</span>
-             </h2>
-             <p className="text-slate-500 text-lg font-serif italic leading-relaxed mb-12">
-               Transparent pricing for premium grooming transformations. Precision ensured.
-             </p>
-             <div className="p-8 bg-slate-50 border border-slate-100 rounded-none">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Master Class</p>
-                <p className="text-sm font-medium text-slate-600 leading-relaxed mb-6">Our senior stylists provide elite consultations and precision finishing for every treatment profile.</p>
-                <a href="#book" className="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red hover:underline decoration-brand-red/30">Secure Selection</a>
-             </div>
+        {/* Interactive Frame Banner */}
+        <motion.div 
+          whileHover={{ y: -5 }}
+          className="w-full h-40 md:h-80 relative overflow-hidden rounded-[2rem] md:rounded-[3rem] mb-12 md:mb-20 group shadow-2xl shadow-slate-200"
+        >
+          <motion.div 
+            initial={{ scale: 1.1 }}
+            whileInView={{ scale: 1 }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
+            className="absolute inset-0 z-0"
+          >
+            <img 
+              src="https://res.cloudinary.com/dk8jbgjhl/image/upload/q_auto/f_auto/v1777916400/WhatsApp_Image_2026-04-22_at_14.50.03_kwvaiv.jpg" 
+              alt="Barbershop Background" 
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent"></div>
+            
+            {/* Active Effect: Floating Particles or Sheen */}
+            <motion.div 
+              animate={{ translateX: ["-100%", "100%"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12"
+            />
+          </motion.div>
+          
+          <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8 md:p-16 text-center">
+            <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 w-full">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="w-full"
+              >
+                <span className="text-brand-red font-black uppercase tracking-[0.4em] text-[10px] mb-4 block">Service Menu</span>
+                <h2 className="text-4xl md:text-7xl font-black uppercase tracking-tighter text-white leading-none">
+                  HAIR<span className="text-brand-blue italic font-serif lowercase tracking-normal">CUTS</span>
+                </h2>
+              </motion.div>
+            </div>
           </div>
+        </motion.div>
 
-          <div className="lg:col-span-8">
-             <div className="grid sm:grid-cols-2 gap-x-12 gap-y-10">
+        {/* Minimized Haircut Offerings in 1 Balanced Frame */}
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-[2rem] md:rounded-[3rem] p-8 md:p-16 border border-slate-100 shadow-xl relative overflow-hidden group">
+            <div className="relative z-10">
+              <div className="flex items-center gap-4 mb-12">
+                <div className="h-px flex-1 bg-slate-100"></div>
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Master Barber Menu</p>
+                <div className="h-px flex-1 bg-slate-100"></div>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8">
                 {SERVICES.map((item, idx) => (
-                  <div key={idx} className="group cursor-default">
-                    <div className="flex justify-between items-baseline mb-3">
-                       <h3 className="text-sm font-black uppercase tracking-tight group-hover:text-brand-red transition-colors whitespace-nowrap">{item.name}</h3>
-                       <div className="flex-1 border-b border-slate-100 border-dotted mx-4 mb-1"></div>
-                       <span className="text-xl font-black font-mono text-slate-900 italic">R{item.price}</span>
+                  <motion.div 
+                    key={idx}
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.02 }}
+                    whileHover={{ x: 5 }}
+                    className="flex justify-between items-end border-b border-slate-50 pb-4 group/item cursor-default"
+                  >
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-tight group-hover/item:text-brand-red transition-colors">
+                        {item.name}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-medium">{item.desc}</p>
                     </div>
-                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">{item.desc}</p>
-                  </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black font-mono text-brand-red">R{item.price}</span>
+                    </div>
+                  </motion.div>
                 ))}
-             </div>
-             
-             <div className="mt-20 flex items-center justify-between py-10 border-t border-slate-50">
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">Valued at Midrand Central</p>
-                <div className="flex items-center gap-4">
-                   <div className="w-1.5 h-1.5 bg-brand-red rounded-full"></div>
-                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-900 underline decoration-slate-200">Price List v.2.6</span>
-                </div>
-             </div>
+              </div>
+
+              <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Precision grooming for <span className="text-brand-blue italic font-serif lowercase tracking-normal">everyone</span>
+                </p>
+                <a 
+                  href="https://wa.me/27607246829"
+                  className="flex items-center gap-3 bg-brand-red text-white px-6 py-3 rounded-full text-[9px] font-black uppercase tracking-[0.2em] hover:bg-brand-dark transition-all shadow-lg shadow-red-100"
+                >
+                  Enquire on WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2209,8 +2294,6 @@ export default function App() {
         <ErrorBoundary name="BookingSystem">
           <BookingSystem profile={profile} />
         </ErrorBoundary>
-
-        <MembershipInfo profile={profile} />
         <WelcomeJourney />
         <HaircutPricing />
         <Portfolio />
