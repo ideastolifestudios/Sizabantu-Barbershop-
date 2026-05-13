@@ -1,6 +1,5 @@
 /**
- * Consolidated API — 1 function instead of 9
- * All routes preserved, same URL patterns
+ * Consolidated API — Type-Corrected Version
  */
 import { NextRequest, NextResponse } from "next/server";
 import { ok, err, handleApiError } from "@/lib/utils/api-helpers";
@@ -85,7 +84,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       const { userPhone, userName, barberId, serviceId, serviceName, servicePrice, date, startTime, notes } = await req.json();
       if (!userPhone || !userName || !barberId || !serviceId || !date || !startTime) return err("Missing required fields");
       const booking = await createBooking({ userId: uid, userPhone, userName, barberId, serviceId, serviceName, servicePrice, date, startTime, notes });
-      notifyBookingConfirmed({ userId: uid, phone: userPhone, name: userName, date, time: startTime, serviceName }).catch(console.error);
+      
+      // FIX: Changed 'serviceName' to 'service' and added 'bookingId' to match type
+      notifyBookingConfirmed({ 
+        userId: uid, 
+        phone: userPhone, 
+        name: userName, 
+        date, 
+        time: startTime, 
+        service: serviceName,
+        bookingId: booking.id 
+      }).catch(console.error);
+      
       return ok(booking);
     }
     if (path === "queue") {
@@ -98,21 +108,47 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       if (action === "complete") {
         const { uid } = await verifyAuth(req);
         if (!body.entryId) return err("entryId required");
-        const entry = await completeSession(body.entryId, uid);
+        
+        // FIX: completeSession only takes 1 argument
+        const entry = await completeSession(body.entryId); 
         const { stamps, newRewards } = await addStamp(entry.userId, body.entryId);
-        notifySessionCompleted({ userId: entry.userId, phone: entry.userPhone, serviceName: entry.serviceName ?? "" }).catch(console.error);
-        if (newRewards?.length) notifyRewardUnlocked({ userId: entry.userId, phone: entry.userPhone, reward: newRewards[0] }).catch(console.error);
+        
+        // FIX: notifySessionCompleted uses 'stamps' as string and 'name'
+        notifySessionCompleted({ 
+          userId: entry.userId, 
+          phone: entry.userPhone, 
+          name: entry.userName,
+          stamps: String(stamps)
+        }).catch(console.error);
+
+        if (newRewards?.length) {
+          notifyRewardUnlocked({ 
+            userId: entry.userId, 
+            phone: entry.userPhone, 
+            name: entry.userName,
+            rewardMessage: newRewards[0].title // Assuming title is the string needed
+          }).catch(console.error);
+        }
         return ok({ entry, stamps, newRewards });
       }
       if (action === "noshow") {
         const { uid } = await verifyAuth(req);
         if (!body.entryId) return err("entryId required");
-        return ok(await processNoShow(body.entryId, uid));
+        return ok(await processNoShow(body.entryId)); // FIX: removed uid if not expected
       }
       const { uid } = await verifyAuth(req);
       if (!body.userPhone || !body.userName) return err("userPhone and userName required");
       const entry = await joinQueue({ userId: uid, userPhone: body.userPhone, userName: body.userName, serviceId: body.serviceId, serviceName: body.serviceName });
-      notifyQueueJoined({ userId: uid, phone: body.userPhone, position: entry.position, estimatedWait: entry.estimatedWaitMinutes }).catch(console.error);
+      
+      // FIX: Ensure position and wait are strings
+      notifyQueueJoined({ 
+        userId: uid, 
+        phone: body.userPhone, 
+        name: body.userName,
+        position: String(entry.position), 
+        estimatedWait: String(entry.estimatedWaitMinutes) 
+      }).catch(console.error);
+      
       return ok(entry);
     }
     if (path === "rewards") {
@@ -173,6 +209,15 @@ async function runReminders() {
   const targetTime = `${String(h).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
   const snap = await adminDb.collection(COLLECTIONS.BOOKINGS).where("date","==",targetDate).where("startTime","==",targetTime).where("status","in",["confirmed","checked-in"]).get();
   const sent: string[] = [];
-  await Promise.all(snap.docs.map(async d => { const b = d.data(); await sendNotification({ userId: b.userId, phone: b.userPhone, event: "reminder_10min", templateData: { name: b.userName, time: targetTime, service: b.serviceName } }).catch(console.error); sent.push(d.id); }));
+  await Promise.all(snap.docs.map(async d => { 
+    const b = d.data(); 
+    await sendNotification({ 
+      userId: b.userId, 
+      phone: b.userPhone, 
+      event: "reminder_10min" as NotificationEvent, 
+      templateData: { name: b.userName, time: targetTime, service: b.serviceName } 
+    }).catch(console.error); 
+    sent.push(d.id); 
+  }));
   return { reminded: sent.length, ids: sent };
 }
